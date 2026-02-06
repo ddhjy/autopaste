@@ -18,6 +18,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import Quartz
 from AppKit import (
+    NSAlert,
     NSApplication,
     NSStatusBar,
     NSVariableStatusItemLength,
@@ -30,7 +31,9 @@ from AppKit import (
     NSRunLoop,
     NSDefaultRunLoopMode,
     NSDate,
+    NSTextField,
     NSTimer,
+    NSMakeRect,
 )
 import objc
 from PyObjCTools import AppHelper
@@ -148,12 +151,18 @@ class AppDelegate(NSObject):
     def _build_menu(self):
         menu = NSMenu.alloc().init()
 
-        title = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+        self._title_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
             f"AutoPaste  :{self._port}", None, ""
         )
-        title.setEnabled_(False)
-        menu.addItem_(title)
+        self._title_item.setEnabled_(False)
+        menu.addItem_(self._title_item)
         menu.addItem_(NSMenuItem.separatorItem())
+
+        self._port_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            f"Port: {self._port}", "changePort:", ""
+        )
+        self._port_item.setTarget_(self)
+        menu.addItem_(self._port_item)
 
         self._toggle_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
             "Auto Send", "toggleAutoSend:", ""
@@ -179,6 +188,39 @@ class AppDelegate(NSObject):
         self._status_item.setMenu_(menu)
 
     # --- actions ---
+
+    def changePort_(self, sender):
+        alert = NSAlert.alloc().init()
+        alert.setMessageText_("Change Port")
+        alert.setInformativeText_("Enter the new port number:")
+        alert.addButtonWithTitle_("OK")
+        alert.addButtonWithTitle_("Cancel")
+
+        input_field = NSTextField.alloc().initWithFrame_(NSMakeRect(0, 0, 200, 24))
+        input_field.setStringValue_(str(self._port))
+        alert.setAccessoryView_(input_field)
+        alert.window().setInitialFirstResponder_(input_field)
+
+        response = alert.runModal()
+        if response != 1000:  # NSAlertFirstButtonReturn
+            return
+
+        try:
+            new_port = int(input_field.stringValue())
+            if not (1 <= new_port <= 65535):
+                raise ValueError
+        except ValueError:
+            return
+
+        if new_port == self._port:
+            return
+
+        self._port = new_port
+        self._title_item.setTitle_(f"AutoPaste  :{self._port}")
+        self._port_item.setTitle_(f"Port: {self._port}")
+        if self._running:
+            self._stop_server()
+            self._start_server()
 
     def toggleAutoSend_(self, sender):
         self._auto_send = not self._auto_send
