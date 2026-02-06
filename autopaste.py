@@ -4,8 +4,8 @@ AutoPaste - macOS menu bar app that receives text via HTTP and pastes it
 into the active input field.
 
 Send text:
-    curl -X POST http://localhost:9999 -d 'your text here'
-    curl -X POST http://localhost:9999 -H 'Content-Type: application/json' \
+    curl -X POST http://localhost:7788 -d 'your text here'
+    curl -X POST http://localhost:7788 -H 'Content-Type: application/json' \
          -d '{"text": "your text here"}'
 """
 
@@ -348,7 +348,7 @@ class AppDelegate(NSObject):
 
 # --------------- main ---------------
 
-DEFAULT_PORT = 9999
+DEFAULT_PORT = 7788
 
 def main():
     app = NSApplication.sharedApplication()
