@@ -20,21 +20,36 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import Quartz
 
 
-def simulate_paste():
-    # Key code 9 = 'v', command flag
+def press_key(key_code, flags=0):
     src = Quartz.CGEventSourceCreate(Quartz.kCGEventSourceStateHIDSystemState)
-    cmd_down = Quartz.CGEventCreateKeyboardEvent(src, 9, True)
-    cmd_up = Quartz.CGEventCreateKeyboardEvent(src, 9, False)
-    Quartz.CGEventSetFlags(cmd_down, Quartz.kCGEventFlagMaskCommand)
-    Quartz.CGEventSetFlags(cmd_up, Quartz.kCGEventFlagMaskCommand)
-    Quartz.CGEventPost(Quartz.kCGHIDEventTap, cmd_down)
-    Quartz.CGEventPost(Quartz.kCGHIDEventTap, cmd_up)
+    down = Quartz.CGEventCreateKeyboardEvent(src, key_code, True)
+    up = Quartz.CGEventCreateKeyboardEvent(src, key_code, False)
+    if flags:
+        Quartz.CGEventSetFlags(down, flags)
+        Quartz.CGEventSetFlags(up, flags)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
 
 
-def copy_and_paste(text: str):
+def simulate_paste():
+    press_key(9, Quartz.kCGEventFlagMaskCommand)  # Cmd+V
+
+
+def simulate_send():
+    # Enter
+    press_key(36)
+    time.sleep(0.05)
+    # Cmd+Enter
+    press_key(36, Quartz.kCGEventFlagMaskCommand)
+
+
+def copy_and_paste(text: str, auto_send=False):
     subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
     time.sleep(0.05)
     simulate_paste()
+    if auto_send:
+        time.sleep(0.1)
+        simulate_send()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -62,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            copy_and_paste(text)
+            copy_and_paste(text, auto_send=self.server.auto_send)
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'{"ok": true}')
@@ -79,13 +94,19 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description="AutoPaste server")
     parser.add_argument("--port", type=int, default=9999)
+    parser.add_argument("--auto-send", action="store_true",
+                        help="After pasting, simulate Enter and Cmd+Enter to send")
     args = parser.parse_args()
 
     class ReusableHTTPServer(HTTPServer):
         allow_reuse_address = True
+        auto_send = False
 
     server = ReusableHTTPServer(("0.0.0.0", args.port), Handler)
+    server.auto_send = args.auto_send
     print(f"AutoPaste listening on http://0.0.0.0:{args.port}")
+    if args.auto_send:
+        print("Auto-send ENABLED (Enter + Cmd+Enter after paste)")
     print("Send text:  curl -X POST http://<your-ip>:{} -d 'hello'".format(args.port))
     try:
         server.serve_forever()
