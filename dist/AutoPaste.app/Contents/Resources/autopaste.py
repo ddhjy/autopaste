@@ -20,21 +20,29 @@ import Quartz
 from AppKit import (
     NSAlert,
     NSApplication,
-    NSStatusBar,
-    NSVariableStatusItemLength,
+    NSBezierPath,
+    NSColor,
+    NSFont,
+    NSFontAttributeName,
+    NSForegroundColorAttributeName,
+    NSGraphicsContext,
+    NSMakeRect,
+    NSMakeSize,
     NSMenu,
     NSMenuItem,
-    NSOnState,
-    NSOffState,
     NSImage,
     NSObject,
+    NSOffState,
+    NSOnState,
     NSRunLoop,
     NSDefaultRunLoopMode,
     NSDate,
+    NSStatusBar,
     NSTextField,
     NSTimer,
-    NSMakeRect,
+    NSVariableStatusItemLength,
 )
+from Foundation import NSDictionary, NSPoint, NSSize
 import objc
 from PyObjCTools import AppHelper
 
@@ -124,6 +132,74 @@ class ReusableHTTPServer(HTTPServer):
     auto_send = False
 
 
+# --------------- status bar icon ---------------
+
+def _make_status_icon(auto_send=False, running=True):
+    s = 18
+    img = NSImage.alloc().initWithSize_(NSMakeSize(s, s))
+    img.lockFocus()
+
+    color = NSColor.blackColor()
+
+    # clipboard body
+    bp = NSBezierPath.bezierPath()
+    r = NSMakeRect(2, 0.5, 14, 15)
+    bp.appendBezierPathWithRoundedRect_xRadius_yRadius_(r, 2, 2)
+    bp.setLineWidth_(1.4)
+    color.set()
+    bp.stroke()
+
+    # clipboard clip (top center)
+    clip = NSBezierPath.bezierPath()
+    clip.appendBezierPathWithRoundedRect_xRadius_yRadius_(
+        NSMakeRect(6, 13, 6, 4.5), 1.5, 1.5
+    )
+    clip.setLineWidth_(1.4)
+    color.set()
+    clip.stroke()
+
+    # lines on clipboard
+    color.set()
+    for y_off in [4, 7, 10]:
+        line = NSBezierPath.bezierPath()
+        line.moveToPoint_(NSPoint(5.5, y_off))
+        line.lineToPoint_(NSPoint(12.5, y_off))
+        line.setLineWidth_(1.2)
+        line.stroke()
+
+    if auto_send:
+        # draw a small upward arrow (send indicator) at bottom-right
+        bg = NSColor.whiteColor()
+        bg_circle = NSBezierPath.bezierPath()
+        bg_circle.appendBezierPathWithOvalInRect_(NSMakeRect(10, -1, 9, 9))
+        bg.set()
+        bg_circle.fill()
+
+        arrow = NSBezierPath.bezierPath()
+        cx, cy = 14.5, 3.5
+        arrow.moveToPoint_(NSPoint(cx, cy + 3.2))  # tip
+        arrow.lineToPoint_(NSPoint(cx - 2.4, cy + 0.2))
+        arrow.moveToPoint_(NSPoint(cx, cy + 3.2))
+        arrow.lineToPoint_(NSPoint(cx + 2.4, cy + 0.2))
+        arrow.moveToPoint_(NSPoint(cx, cy + 3.2))
+        arrow.lineToPoint_(NSPoint(cx, cy - 1.5))
+        arrow.setLineWidth_(1.6)
+        color.set()
+        arrow.stroke()
+
+    if not running:
+        # draw a small pause icon at bottom-right
+        color.set()
+        for dx in [0, 3]:
+            bar = NSBezierPath.bezierPath()
+            bar.appendBezierPathWithRect_(NSMakeRect(11 + dx, 0, 1.8, 5))
+            bar.fill()
+
+    img.unlockFocus()
+    img.setTemplate_(True)
+    return img
+
+
 # --------------- macOS menu bar app ---------------
 
 class AppDelegate(NSObject):
@@ -138,12 +214,17 @@ class AppDelegate(NSObject):
         self._running = False
         return self
 
+    def _update_icon(self):
+        icon = _make_status_icon(auto_send=self._auto_send, running=self._running)
+        self._status_item.setImage_(icon)
+        self._status_item.setTitle_("")
+
     def applicationDidFinishLaunching_(self, notification):
         self._status_item = NSStatusBar.systemStatusBar().statusItemWithLength_(
             NSVariableStatusItemLength
         )
-        self._status_item.setTitle_("📋")
         self._status_item.setHighlightMode_(True)
+        self._update_icon()
 
         self._build_menu()
         self._start_server()
@@ -227,6 +308,7 @@ class AppDelegate(NSObject):
         sender.setState_(NSOnState if self._auto_send else NSOffState)
         if self._server:
             self._server.auto_send = self._auto_send
+        self._update_icon()
 
     def toggleServer_(self, sender):
         if self._running:
@@ -249,7 +331,7 @@ class AppDelegate(NSObject):
         self._server_thread.start()
         self._running = True
         self._server_item.setTitle_("Server: Running")
-        self._status_item.setTitle_("📋")
+        self._update_icon()
         print(f"AutoPaste listening on http://0.0.0.0:{self._port}")
 
     def _stop_server(self):
@@ -261,7 +343,7 @@ class AppDelegate(NSObject):
         self._server_thread = None
         self._running = False
         self._server_item.setTitle_("Server: Stopped")
-        self._status_item.setTitle_("📋⏸")
+        self._update_icon()
 
 
 # --------------- main ---------------
