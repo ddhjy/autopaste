@@ -1,0 +1,4 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "$0")" && pwd)"
+RESOURCES="$DIR/../Resources"
+exec /Users/zengkai/miniconda3/bin/python3 "$RESOURCES/autopaste.py"
