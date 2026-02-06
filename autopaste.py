@@ -20,36 +20,58 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import Quartz
 
 
-def press_key(key_code, flags=0):
+def press_key(key_code, flags=0, label=""):
     src = Quartz.CGEventSourceCreate(Quartz.kCGEventSourceStateHIDSystemState)
+    print(f"  [key] {label} key_code={key_code} flags={flags:#x} src={src}")
     down = Quartz.CGEventCreateKeyboardEvent(src, key_code, True)
     up = Quartz.CGEventCreateKeyboardEvent(src, key_code, False)
     if flags:
         Quartz.CGEventSetFlags(down, flags)
         Quartz.CGEventSetFlags(up, flags)
+    print(f"  [key] posting key_down={down} key_up={up}")
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
+    time.sleep(0.02)
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
+    time.sleep(0.02)
+    print(f"  [key] {label} done")
 
 
 def simulate_paste():
-    press_key(9, Quartz.kCGEventFlagMaskCommand)  # Cmd+V
+    print("[paste] simulating Cmd+V")
+    press_key(9, Quartz.kCGEventFlagMaskCommand, label="Cmd+V")
+    print("[paste] done")
 
 
 def simulate_send():
-    # Enter
-    press_key(36)
-    time.sleep(0.05)
-    # Cmd+Enter
-    press_key(36, Quartz.kCGEventFlagMaskCommand)
+    print("[send] simulating Enter via osascript")
+    subprocess.run([
+        "osascript", "-e",
+        'tell application "System Events" to key code 36'
+    ], check=True)
+    print("[send] Enter done")
+    time.sleep(0.1)
+    print("[send] simulating Cmd+Enter via osascript")
+    subprocess.run([
+        "osascript", "-e",
+        'tell application "System Events" to key code 36 using command down'
+    ], check=True)
+    print("[send] Cmd+Enter done")
+    print("[send] done")
 
 
 def copy_and_paste(text: str, auto_send=False):
+    print(f"[copy_and_paste] text={text[:80]!r} auto_send={auto_send}")
     subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
+    print("[copy_and_paste] clipboard set")
     time.sleep(0.05)
     simulate_paste()
     if auto_send:
-        time.sleep(0.1)
+        print("[copy_and_paste] waiting before auto-send...")
+        time.sleep(0.15)
         simulate_send()
+    else:
+        print("[copy_and_paste] auto_send is OFF, skipping send")
+    print("[copy_and_paste] finished")
 
 
 class Handler(BaseHTTPRequestHandler):
