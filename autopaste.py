@@ -135,64 +135,82 @@ class ReusableHTTPServer(HTTPServer):
 # --------------- status bar icon ---------------
 
 def _make_status_icon(auto_send=False, running=True):
+    """
+    Generate a status bar icon following Apple HIG:
+    - Canvas: 18x18 points (standard for NSStatusItem)
+    - Content: ~14x16 points with 1-2pt margins
+    - Template image for automatic dark/light mode adaptation
+    """
     s = 18
     img = NSImage.alloc().initWithSize_(NSMakeSize(s, s))
     img.lockFocus()
 
     color = NSColor.blackColor()
 
+    # Offset to center the icon vertically (leave ~1pt margin top/bottom)
+    # Clipboard body: 11pt wide x 13pt tall, centered horizontally
+    body_w, body_h = 11, 12
+    body_x = (s - body_w) / 2  # center horizontally = 3.5
+    body_y = 1.5  # slight margin from bottom
+
     # clipboard body
     bp = NSBezierPath.bezierPath()
-    r = NSMakeRect(2, 0.5, 14, 15)
-    bp.appendBezierPathWithRoundedRect_xRadius_yRadius_(r, 2, 2)
-    bp.setLineWidth_(1.4)
+    r = NSMakeRect(body_x, body_y, body_w, body_h)
+    bp.appendBezierPathWithRoundedRect_xRadius_yRadius_(r, 1.5, 1.5)
+    bp.setLineWidth_(1.2)
     color.set()
     bp.stroke()
 
-    # clipboard clip (top center)
+    # clipboard clip (top center tab)
+    clip_w, clip_h = 5, 3.5
+    clip_x = (s - clip_w) / 2  # center = 6.5
+    clip_y = body_y + body_h - 1  # overlap with body top
     clip = NSBezierPath.bezierPath()
     clip.appendBezierPathWithRoundedRect_xRadius_yRadius_(
-        NSMakeRect(6, 13, 6, 4.5), 1.5, 1.5
+        NSMakeRect(clip_x, clip_y, clip_w, clip_h), 1.2, 1.2
     )
-    clip.setLineWidth_(1.4)
+    clip.setLineWidth_(1.2)
     color.set()
     clip.stroke()
 
-    # lines on clipboard
+    # lines on clipboard (3 horizontal lines)
+    line_margin = 2.5
+    line_x1 = body_x + line_margin
+    line_x2 = body_x + body_w - line_margin
     color.set()
-    for y_off in [4, 7, 10]:
+    for i, y_off in enumerate([4.5, 7, 9.5]):
         line = NSBezierPath.bezierPath()
-        line.moveToPoint_(NSPoint(5.5, y_off))
-        line.lineToPoint_(NSPoint(12.5, y_off))
-        line.setLineWidth_(1.2)
+        line.moveToPoint_(NSPoint(line_x1, y_off))
+        line.lineToPoint_(NSPoint(line_x2, y_off))
+        line.setLineWidth_(1.0)
         line.stroke()
 
     if auto_send:
-        # draw a small upward arrow (send indicator) at bottom-right
+        # Small upward arrow (send indicator) at bottom-right corner
         bg = NSColor.whiteColor()
         bg_circle = NSBezierPath.bezierPath()
-        bg_circle.appendBezierPathWithOvalInRect_(NSMakeRect(10, -1, 9, 9))
+        bg_circle.appendBezierPathWithOvalInRect_(NSMakeRect(10.5, 0, 7.5, 7.5))
         bg.set()
         bg_circle.fill()
 
         arrow = NSBezierPath.bezierPath()
-        cx, cy = 14.5, 3.5
-        arrow.moveToPoint_(NSPoint(cx, cy + 3.2))  # tip
-        arrow.lineToPoint_(NSPoint(cx - 2.4, cy + 0.2))
-        arrow.moveToPoint_(NSPoint(cx, cy + 3.2))
-        arrow.lineToPoint_(NSPoint(cx + 2.4, cy + 0.2))
-        arrow.moveToPoint_(NSPoint(cx, cy + 3.2))
-        arrow.lineToPoint_(NSPoint(cx, cy - 1.5))
-        arrow.setLineWidth_(1.6)
+        cx, cy = 14.25, 3.75
+        arrow.moveToPoint_(NSPoint(cx, cy + 2.5))  # tip
+        arrow.lineToPoint_(NSPoint(cx - 2, cy))
+        arrow.moveToPoint_(NSPoint(cx, cy + 2.5))
+        arrow.lineToPoint_(NSPoint(cx + 2, cy))
+        arrow.moveToPoint_(NSPoint(cx, cy + 2.5))
+        arrow.lineToPoint_(NSPoint(cx, cy - 1))
+        arrow.setLineWidth_(1.3)
         color.set()
         arrow.stroke()
 
     if not running:
-        # draw a small pause icon at bottom-right
+        # Pause icon at bottom-right corner
         color.set()
-        for dx in [0, 3]:
+        for dx in [0, 2.5]:
             bar = NSBezierPath.bezierPath()
-            bar.appendBezierPathWithRect_(NSMakeRect(11 + dx, 0, 1.8, 5))
+            bar.appendBezierPathWithRect_(NSMakeRect(11 + dx, 0.5, 1.5, 4))
             bar.fill()
 
     img.unlockFocus()
