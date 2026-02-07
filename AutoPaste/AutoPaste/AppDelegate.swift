@@ -3,6 +3,7 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var titleItem: NSMenuItem!
+    private var ipItem: NSMenuItem!
     private var portItem: NSMenuItem!
     private var toggleItem: NSMenuItem!
     private var serverItem: NSMenuItem!
@@ -30,6 +31,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         titleItem.isEnabled = false
         menu.addItem(titleItem)
         menu.addItem(.separator())
+
+        ipItem = NSMenuItem(title: "IP: \(localIPAddress())", action: nil, keyEquivalent: "")
+        ipItem.isEnabled = false
+        menu.addItem(ipItem)
 
         portItem = NSMenuItem(title: "Port: \(port)", action: #selector(changePort(_:)), keyEquivalent: "")
         portItem.target = self
@@ -99,6 +104,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func quitApp(_ sender: NSMenuItem) {
         stopServer()
         NSApplication.shared.terminate(self)
+    }
+
+    private func localIPAddress() -> String {
+        var address = "Unknown"
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return address }
+        defer { freeifaddrs(ifaddr) }
+        for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+            let sa = ptr.pointee.ifa_addr.pointee
+            guard sa.sa_family == UInt8(AF_INET) else { continue }
+            let name = String(cString: ptr.pointee.ifa_name)
+            guard name.hasPrefix("en") else { continue }
+            var addr = ptr.pointee.ifa_addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+            var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+            inet_ntop(AF_INET, &addr.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN))
+            address = String(cString: buf)
+            break
+        }
+        return address
     }
 
     private func startServer() {
