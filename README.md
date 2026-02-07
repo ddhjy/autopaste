@@ -8,25 +8,30 @@ macOS 菜单栏应用，通过 HTTP 接口接收文本并自动粘贴到当前�
 - 配合自动化工具链，实现跨应用的文本输入
 - 搭配 AI 对话工具，将生成内容直接粘贴到目标应用
 
-## 安装
+## 构建
 
-### 从源码运行
-
-```bash
-pip install pyobjc
-python autopaste.py
-```
-
-### 打包为 .app
+### 使用 Xcode
 
 ```bash
-pip install py2app
-python setup.py py2app
+open AutoPaste/AutoPaste.xcodeproj
 ```
 
-生成的应用位于 `dist/AutoPaste.app`，可拖入 `/Applications` 目录使用。
+在 Xcode 中选择 **Product → Build**（⌘B），生成的应用位于 DerivedData 目录。
 
-> 注：打包时若遇到递归深度错误，需在构建脚本中设置 `sys.setrecursionlimit(10000)`。
+### 使用命令行
+
+```bash
+cd AutoPaste
+xcodebuild -project AutoPaste.xcodeproj -scheme AutoPaste -configuration Release build
+```
+
+构建产物位于 `~/Library/Developer/Xcode/DerivedData/AutoPaste-*/Build/Products/Release/AutoPaste.app`。
+
+可复制到 `/Applications` 目录使用：
+
+```bash
+cp -R ~/Library/Developer/Xcode/DerivedData/AutoPaste-*/Build/Products/Release/AutoPaste.app /Applications/
+```
 
 ## 使用方法
 
@@ -88,9 +93,26 @@ AutoPaste 需要以下 macOS 权限：
 
 首次运行时系统会弹窗请求授权，请在 **系统设置 → 隐私与安全性 → 辅助功能** 中允许。
 
+## 项目结构
+
+```
+AutoPaste/
+├── AutoPaste.xcodeproj/
+│   └── project.pbxproj
+└── AutoPaste/
+    ├── main.swift            # 入口点
+    ├── AppDelegate.swift     # 主应用逻辑、菜单构建
+    ├── StatusBarIcon.swift   # 菜单栏图标绘制
+    ├── HTTPServer.swift      # GCD TCP 服务器（纯 BSD socket）
+    ├── PasteService.swift    # 粘贴逻辑（CGEvent + osascript）
+    ├── Info.plist
+    └── AutoPaste.entitlements
+```
+
 ## 技术细节
 
+- 原生 Swift + Cocoa，无第三方依赖
 - 使用 `CGEventPost` 模拟键盘事件（Cmd+V 粘贴）
-- 使用 `pbcopy` 将文本写入系统剪贴板
-- HTTP 服务运行在独立线程，不阻塞 UI
+- 使用 `NSPasteboard` 将文本写入系统剪贴板
+- HTTP 服务基于 BSD socket + GCD，运行在后台队列
 - 菜单栏图标使用 `NSBezierPath` 程序化绘制，支持自动适配深色/浅色模式
