@@ -75,9 +75,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateAccessibilityStatus() {
         let granted = checkAccessibilityPermission()
         if granted {
-            accessibilityItem.title = "✅ Accessibility: Granted"
+            accessibilityItem.title = "Accessibility: Granted"
+            accessibilityItem.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: "Granted")
         } else {
-            accessibilityItem.title = "❌ Accessibility: Not Granted (Click to Fix)"
+            accessibilityItem.title = "Accessibility: Not Granted (Click to Fix)"
+            accessibilityItem.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Not Granted")
         }
     }
 
