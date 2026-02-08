@@ -1,4 +1,5 @@
 import Cocoa
+import ApplicationServices
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -7,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var portItem: NSMenuItem!
     private var toggleItem: NSMenuItem!
     private var serverItem: NSMenuItem!
+    private var accessibilityItem: NSMenuItem!
 
     private var port: UInt16 = 7788
     private var autoSend = false
@@ -24,8 +26,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.image = StatusBarIcon.make(autoSend: autoSend, running: serverRunning)
     }
 
+    private func checkAccessibilityPermission() -> Bool {
+        return AXIsProcessTrusted()
+    }
+
     private func buildMenu() {
         let menu = NSMenu()
+        menu.delegate = self
 
         titleItem = NSMenuItem(title: "AutoPaste  :\(port)", action: nil, keyEquivalent: "")
         titleItem.isEnabled = false
@@ -51,11 +58,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(.separator())
 
+        accessibilityItem = NSMenuItem(title: "Accessibility: Checking...", action: #selector(openAccessibilitySettings(_:)), keyEquivalent: "")
+        accessibilityItem.target = self
+        menu.addItem(accessibilityItem)
+        updateAccessibilityStatus()
+
+        menu.addItem(.separator())
+
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp(_:)), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
         statusItem.menu = menu
+    }
+
+    private func updateAccessibilityStatus() {
+        let granted = checkAccessibilityPermission()
+        if granted {
+            accessibilityItem.title = "✅ Accessibility: Granted"
+        } else {
+            accessibilityItem.title = "❌ Accessibility: Not Granted (Click to Fix)"
+        }
+    }
+
+    @objc private func openAccessibilitySettings(_ sender: NSMenuItem) {
+        let granted = checkAccessibilityPermission()
+        if !granted {
+            // 触发系统权限请求对话框
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            AXIsProcessTrustedWithOptions(options)
+        }
+        // 打开系统设置的辅助功能页面
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func changePort(_ sender: NSMenuItem) {
@@ -151,5 +187,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         serverRunning = false
         serverItem.title = "Server: Stopped"
         updateIcon()
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    func menuWillOpen(_ menu: NSMenu) {
+        updateAccessibilityStatus()
     }
 }
