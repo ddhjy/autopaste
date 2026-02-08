@@ -14,6 +14,7 @@
 		A10000010000000000000005 /* PasteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000005 /* PasteService.swift */; };
 		A10000010000000000000010 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000010000000000000010 /* Cocoa.framework */; };
 		A10000010000000000000011 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000010000000000000011 /* CoreGraphics.framework */; };
+		A10000010000000000000020 /* AutoPaste.icns in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020 /* AutoPaste.icns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +27,7 @@
 		A20000010000000000000007 /* AutoPaste.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AutoPaste.entitlements; sourceTree = "<group>"; };
 		A20000010000000000000010 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		A20000010000000000000011 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		A20000010000000000000020 /* AutoPaste.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AutoPaste.icns; sourceTree = "<group>"; };
 		A20000010000000000000099 /* AutoPaste.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AutoPaste.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -61,6 +63,7 @@
 				A20000010000000000000005 /* PasteService.swift */,
 				A20000010000000000000006 /* Info.plist */,
 				A20000010000000000000007 /* AutoPaste.entitlements */,
+				A20000010000000000000020 /* AutoPaste.icns */,
 			);
 			path = AutoPaste;
 			sourceTree = "<group>";
@@ -140,6 +143,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000010000000000000020 /* AutoPaste.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
