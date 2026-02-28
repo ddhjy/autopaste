@@ -94,7 +94,7 @@ curl -X POST http://localhost:7788 \
 |--------|------|
 | **Port: 7788** | 点击可修改监听端口 |
 | **Auto Send** | 开启后粘贴完成会自动按回车发送（Enter + Cmd+Enter） |
-| **Auto Send Shortcut: None** | 配置 Auto Send 切换快捷键（默认无快捷键，留空可清除） |
+| **Auto Send Shortcut: None** | 配置 Auto Send 全局切换快捷键（默认无快捷键，点击后直接按组合键录制，按 Delete 清除） |
 | **Quit** | 退出应用（快捷键 Cmd+Q） |
 
 ### 图标状态

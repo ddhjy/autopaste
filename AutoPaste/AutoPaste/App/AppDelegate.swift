@@ -1,8 +1,15 @@
 import Cocoa
 import ApplicationServices
+import Carbon.HIToolbox
 import SystemConfiguration
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private struct ShortcutConfig {
+        let key: String
+        let keyCode: UInt32
+        let modifiers: NSEvent.ModifierFlags
+    }
+
     private var statusItem: NSStatusItem!
     private var titleItem: NSMenuItem!
     private var ipItem: NSMenuItem!
@@ -16,9 +23,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: HTTPServer?
     private var serverRunning = false
     private var ipTitleResetWorkItem: DispatchWorkItem?
+    private var hotKeyRef: EventHotKeyRef?
+    private var hotKeyHandler: EventHandlerRef?
 
     private let autoSendShortcutKeyDefaultsKey = "autoSendShortcutKey"
+    private let autoSendShortcutKeyCodeDefaultsKey = "autoSendShortcutKeyCode"
     private let autoSendShortcutModifiersDefaultsKey = "autoSendShortcutModifiers"
+    private let supportedShortcutModifiers: NSEvent.ModifierFlags = [.command, .control, .option, .shift]
+    private let autoSendHotKeySignature: OSType = 0x41535348 // ASSH
+    private let autoSendHotKeyID: UInt32 = 1
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -132,124 +145,249 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleAutoSend(_ sender: NSMenuItem) {
-        autoSend = !autoSend
-        sender.state = autoSend ? .on : .off
+        toggleAutoSendState()
+    }
+
+    private func toggleAutoSendState() {
+        autoSend.toggle()
+        toggleItem.state = autoSend ? .on : .off
         server?.autoSend = autoSend
         updateIcon()
     }
 
     @objc private func configureAutoSendShortcut(_ sender: NSMenuItem) {
-        let current = currentAutoSendShortcutDisplay()
+        let currentShortcut = currentAutoSendShortcut()
+        var selectedShortcut: ShortcutConfig? = currentShortcut
 
         let alert = NSAlert()
         alert.messageText = "Configure Auto Send Shortcut"
-        alert.informativeText = "Enter a shortcut like Cmd+Shift+S. Leave empty to clear. Current: \(current)"
+        alert.informativeText = "Click the box and press a global shortcut. Press Delete to clear."
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
-        let inputField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        inputField.placeholderString = "Cmd+Shift+S"
-        inputField.stringValue = current == "None" ? "" : current
+        let inputField = ShortcutCaptureField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        inputField.placeholderString = "Press shortcut"
+        inputField.isEditable = false
+        inputField.isSelectable = false
+        inputField.focusRingType = .exterior
+        inputField.allowedModifiers = supportedShortcutModifiers
+        inputField.stringValue = currentShortcut.map { shortcutDisplay(key: $0.key, modifiers: $0.modifiers) } ?? "None"
+        inputField.onCapture = { [weak self, weak inputField] captured in
+            guard let self else { return }
+            selectedShortcut = captured.map {
+                ShortcutConfig(key: $0.key, keyCode: $0.keyCode, modifiers: $0.modifiers)
+            }
+            inputField?.stringValue = captured.map {
+                self.shortcutDisplay(key: $0.key, modifiers: $0.modifiers)
+            } ?? "None"
+        }
+
         alert.accessoryView = inputField
         alert.window.initialFirstResponder = inputField
 
         let response = alert.runModal()
         guard response == .alertFirstButtonReturn else { return }
 
-        let value = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value.isEmpty {
+        if let selectedShortcut {
+            saveAutoSendShortcut(selectedShortcut)
+        } else {
             clearAutoSendShortcut()
-            return
         }
-
-        guard let shortcut = parseShortcut(value) else {
-            showShortcutFormatError()
-            return
-        }
-
-        saveAutoSendShortcut(key: shortcut.key, modifiers: shortcut.modifiers)
     }
 
     @objc private func quitApp(_ sender: NSMenuItem) {
+        unregisterGlobalHotKey()
         stopServer()
         NSApplication.shared.terminate(self)
     }
 
     private func applyAutoSendShortcutFromDefaults() {
-        let defaults = UserDefaults.standard
-        guard let key = defaults.string(forKey: autoSendShortcutKeyDefaultsKey), !key.isEmpty else {
+        guard let shortcut = currentAutoSendShortcut() else {
+            unregisterGlobalHotKey()
             clearShortcutOnMenuOnly()
             return
         }
 
-        let rawModifiers = defaults.integer(forKey: autoSendShortcutModifiersDefaultsKey)
-        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(rawModifiers))
-        applyShortcutToMenu(key: key, modifiers: modifiers)
+        unregisterGlobalHotKey()
+        if registerGlobalHotKey(shortcut) {
+            applyShortcutToMenu(shortcut)
+        } else {
+            configureShortcutItem.title = "Auto Send Shortcut: \(shortcutDisplay(key: shortcut.key, modifiers: shortcut.modifiers)) (Unavailable)"
+            print("Failed to register global shortcut: \(shortcutDisplay(key: shortcut.key, modifiers: shortcut.modifiers))")
+        }
     }
 
-    private func saveAutoSendShortcut(key: String, modifiers: NSEvent.ModifierFlags) {
+    private func saveAutoSendShortcut(_ shortcut: ShortcutConfig) {
+        let previousShortcut = currentAutoSendShortcut()
+
+        unregisterGlobalHotKey()
+        guard registerGlobalHotKey(shortcut) else {
+            if let previousShortcut {
+                _ = registerGlobalHotKey(previousShortcut)
+                applyShortcutToMenu(previousShortcut)
+            } else {
+                clearShortcutOnMenuOnly()
+            }
+            showGlobalShortcutUnavailableError()
+            return
+        }
+
         let defaults = UserDefaults.standard
-        defaults.set(key, forKey: autoSendShortcutKeyDefaultsKey)
-        defaults.set(Int(modifiers.rawValue), forKey: autoSendShortcutModifiersDefaultsKey)
-        applyShortcutToMenu(key: key, modifiers: modifiers)
+        defaults.set(shortcut.key, forKey: autoSendShortcutKeyDefaultsKey)
+        defaults.set(Int(shortcut.keyCode), forKey: autoSendShortcutKeyCodeDefaultsKey)
+        defaults.set(Int(shortcut.modifiers.rawValue), forKey: autoSendShortcutModifiersDefaultsKey)
+        applyShortcutToMenu(shortcut)
     }
 
     private func clearAutoSendShortcut() {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: autoSendShortcutKeyDefaultsKey)
+        defaults.removeObject(forKey: autoSendShortcutKeyCodeDefaultsKey)
         defaults.removeObject(forKey: autoSendShortcutModifiersDefaultsKey)
+        unregisterGlobalHotKey()
         clearShortcutOnMenuOnly()
     }
 
     private func clearShortcutOnMenuOnly() {
-        toggleItem.keyEquivalent = ""
-        toggleItem.keyEquivalentModifierMask = []
         configureShortcutItem.title = "Auto Send Shortcut: None"
     }
 
-    private func applyShortcutToMenu(key: String, modifiers: NSEvent.ModifierFlags) {
-        toggleItem.keyEquivalent = key.lowercased()
-        toggleItem.keyEquivalentModifierMask = modifiers
-        configureShortcutItem.title = "Auto Send Shortcut: \(shortcutDisplay(key: key, modifiers: modifiers))"
+    private func applyShortcutToMenu(_ shortcut: ShortcutConfig) {
+        configureShortcutItem.title = "Auto Send Shortcut: \(shortcutDisplay(key: shortcut.key, modifiers: shortcut.modifiers))"
     }
 
-    private func currentAutoSendShortcutDisplay() -> String {
+    private func currentAutoSendShortcut() -> ShortcutConfig? {
         let defaults = UserDefaults.standard
         guard let key = defaults.string(forKey: autoSendShortcutKeyDefaultsKey), !key.isEmpty else {
-            return "None"
+            return nil
+        }
+
+        let keyCode: UInt32
+        if let keyCodeNumber = defaults.object(forKey: autoSendShortcutKeyCodeDefaultsKey) as? NSNumber {
+            keyCode = keyCodeNumber.uint32Value
+        } else if let legacyKeyCode = legacyKeyCode(for: key) {
+            keyCode = legacyKeyCode
+        } else {
+            return nil
         }
 
         let rawModifiers = defaults.integer(forKey: autoSendShortcutModifiersDefaultsKey)
-        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(rawModifiers))
-        return shortcutDisplay(key: key, modifiers: modifiers)
+        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(rawModifiers)).intersection(supportedShortcutModifiers)
+        return ShortcutConfig(key: key, keyCode: keyCode, modifiers: modifiers)
     }
 
-    private func parseShortcut(_ input: String) -> (key: String, modifiers: NSEvent.ModifierFlags)? {
-        let parts = input
-            .split(separator: "+")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-            .filter { !$0.isEmpty }
+    private func registerGlobalHotKey(_ shortcut: ShortcutConfig) -> Bool {
+        installGlobalHotKeyHandlerIfNeeded()
 
-        guard let keyToken = parts.last else { return nil }
-        var modifiers: NSEvent.ModifierFlags = []
+        let hotKeyID = EventHotKeyID(signature: autoSendHotKeySignature, id: autoSendHotKeyID)
+        let status = RegisterEventHotKey(
+            shortcut.keyCode,
+            carbonModifiers(from: shortcut.modifiers),
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        )
+        return status == noErr
+    }
 
-        for modifier in parts.dropLast() {
-            switch modifier {
-            case "cmd", "command", "⌘":
-                modifiers.insert(.command)
-            case "shift", "⇧":
-                modifiers.insert(.shift)
-            case "option", "opt", "alt", "⌥":
-                modifiers.insert(.option)
-            case "control", "ctrl", "⌃":
-                modifiers.insert(.control)
-            default:
-                return nil
-            }
+    private func unregisterGlobalHotKey() {
+        guard let hotKeyRef else { return }
+        UnregisterEventHotKey(hotKeyRef)
+        self.hotKeyRef = nil
+    }
+
+    private func installGlobalHotKeyHandlerIfNeeded() {
+        guard hotKeyHandler == nil else { return }
+
+        var eventSpec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        let userData = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        let callback: EventHandlerUPP = { _, event, userData in
+            guard let event, let userData else { return noErr }
+            let appDelegate = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
+            return appDelegate.handleGlobalHotKeyEvent(event)
         }
 
-        guard keyToken.count == 1, keyToken != "+" else { return nil }
-        return (key: keyToken, modifiers: modifiers)
+        InstallEventHandler(GetApplicationEventTarget(), callback, 1, &eventSpec, userData, &hotKeyHandler)
+    }
+
+    private func handleGlobalHotKeyEvent(_ event: EventRef) -> OSStatus {
+        var hotKeyID = EventHotKeyID()
+        let status = GetEventParameter(
+            event,
+            EventParamName(kEventParamDirectObject),
+            EventParamType(typeEventHotKeyID),
+            nil,
+            MemoryLayout<EventHotKeyID>.size,
+            nil,
+            &hotKeyID
+        )
+
+        guard status == noErr else { return status }
+        guard hotKeyID.signature == autoSendHotKeySignature, hotKeyID.id == autoSendHotKeyID else { return noErr }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.toggleAutoSendState()
+        }
+        return noErr
+    }
+
+    private func carbonModifiers(from modifiers: NSEvent.ModifierFlags) -> UInt32 {
+        var result: UInt32 = 0
+        if modifiers.contains(.command) { result |= UInt32(cmdKey) }
+        if modifiers.contains(.control) { result |= UInt32(controlKey) }
+        if modifiers.contains(.option) { result |= UInt32(optionKey) }
+        if modifiers.contains(.shift) { result |= UInt32(shiftKey) }
+        return result
+    }
+
+    private func legacyKeyCode(for key: String) -> UInt32? {
+        switch key.lowercased() {
+        case "a": return UInt32(kVK_ANSI_A)
+        case "b": return UInt32(kVK_ANSI_B)
+        case "c": return UInt32(kVK_ANSI_C)
+        case "d": return UInt32(kVK_ANSI_D)
+        case "e": return UInt32(kVK_ANSI_E)
+        case "f": return UInt32(kVK_ANSI_F)
+        case "g": return UInt32(kVK_ANSI_G)
+        case "h": return UInt32(kVK_ANSI_H)
+        case "i": return UInt32(kVK_ANSI_I)
+        case "j": return UInt32(kVK_ANSI_J)
+        case "k": return UInt32(kVK_ANSI_K)
+        case "l": return UInt32(kVK_ANSI_L)
+        case "m": return UInt32(kVK_ANSI_M)
+        case "n": return UInt32(kVK_ANSI_N)
+        case "o": return UInt32(kVK_ANSI_O)
+        case "p": return UInt32(kVK_ANSI_P)
+        case "q": return UInt32(kVK_ANSI_Q)
+        case "r": return UInt32(kVK_ANSI_R)
+        case "s": return UInt32(kVK_ANSI_S)
+        case "t": return UInt32(kVK_ANSI_T)
+        case "u": return UInt32(kVK_ANSI_U)
+        case "v": return UInt32(kVK_ANSI_V)
+        case "w": return UInt32(kVK_ANSI_W)
+        case "x": return UInt32(kVK_ANSI_X)
+        case "y": return UInt32(kVK_ANSI_Y)
+        case "z": return UInt32(kVK_ANSI_Z)
+        case "0": return UInt32(kVK_ANSI_0)
+        case "1": return UInt32(kVK_ANSI_1)
+        case "2": return UInt32(kVK_ANSI_2)
+        case "3": return UInt32(kVK_ANSI_3)
+        case "4": return UInt32(kVK_ANSI_4)
+        case "5": return UInt32(kVK_ANSI_5)
+        case "6": return UInt32(kVK_ANSI_6)
+        case "7": return UInt32(kVK_ANSI_7)
+        case "8": return UInt32(kVK_ANSI_8)
+        case "9": return UInt32(kVK_ANSI_9)
+        default: return nil
+        }
+    }
+
+    private func showGlobalShortcutUnavailableError() {
+        let alert = NSAlert()
+        alert.messageText = "Shortcut Unavailable"
+        alert.informativeText = "This global shortcut is already used by the system or another app."
+        alert.runModal()
     }
 
     private func shortcutDisplay(key: String, modifiers: NSEvent.ModifierFlags) -> String {
@@ -260,13 +398,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if modifiers.contains(.shift) { parts.append("Shift") }
         parts.append(key.uppercased())
         return parts.joined(separator: "+")
-    }
-
-    private func showShortcutFormatError() {
-        let alert = NSAlert()
-        alert.messageText = "Invalid shortcut"
-        alert.informativeText = "Use format like Cmd+Shift+S"
-        alert.runModal()
     }
 
     private func localIPAddresses() -> [(label: String, address: String, rank: Int)] {
@@ -407,6 +538,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         server = nil
         serverRunning = false
         updateIcon()
+    }
+}
+
+private final class ShortcutCaptureField: NSTextField {
+    var onCapture: (((key: String, keyCode: UInt32, modifiers: NSEvent.ModifierFlags)?) -> Void)?
+    var allowedModifiers: NSEvent.ModifierFlags = [.command, .control, .option, .shift]
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 51 || event.keyCode == 117 {
+            onCapture?(nil)
+            return
+        }
+
+        if event.keyCode == 36 || event.keyCode == 76 || event.keyCode == 53 {
+            super.keyDown(with: event)
+            return
+        }
+
+        guard let chars = event.charactersIgnoringModifiers,
+              let scalar = chars.unicodeScalars.first,
+              scalar.isASCII,
+              !CharacterSet.controlCharacters.contains(scalar) else {
+            NSSound.beep()
+            return
+        }
+
+        let key = String(scalar).lowercased()
+        let keyCode = UInt32(event.keyCode)
+        let modifiers = event.modifierFlags.intersection(allowedModifiers)
+        onCapture?((key: key, keyCode: keyCode, modifiers: modifiers))
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.keyCode == 36 || event.keyCode == 76 || event.keyCode == 53 {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        keyDown(with: event)
+        return true
     }
 }
 
