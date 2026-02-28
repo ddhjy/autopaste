@@ -46,6 +46,12 @@ make release
 - `dist/release/AutoPaste.app`
 - `dist/release/AutoPaste-<version>.zip`
 
+如需直接覆盖安装到 `/Applications` 并自动重启应用，执行：
+
+```bash
+make install
+```
+
 ## 使用方法
 
 启动后 AutoPaste 会出现在菜单栏（不会显示 Dock 图标），默认监听 `0.0.0.0:7788`。

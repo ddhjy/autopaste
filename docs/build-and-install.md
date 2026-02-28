@@ -33,30 +33,21 @@ xcodebuild -project AutoPaste.xcodeproj -scheme AutoPaste -configuration Release
 
 ## 安装步骤
 
-1. 关闭正在运行的 AutoPaste（如有）
-2. 将编译产物复制到 Applications 目录
+推荐直接执行：
 
 ```bash
-# 关闭旧进程
-pkill -f AutoPaste.app || true
-
-# 删除旧版本并安装新版本
-rm -rf /Applications/AutoPaste.app
-cp -R dist/release/AutoPaste.app /Applications/
+make install
 ```
 
-## 启动应用
+该命令会自动完成：
 
-```bash
-open /Applications/AutoPaste.app
-```
+1. 编译最新产物并更新 `dist/release/AutoPaste.app`
+2. 尝试优雅退出正在运行的 AutoPaste（必要时强制结束）
+3. 覆盖安装到 `/Applications/AutoPaste.app`
+4. 重新打开应用
 
 ## 一键编译安装（完整命令）
 
 ```bash
-make release && \
-pkill -f AutoPaste.app 2>/dev/null || true && \
-rm -rf /Applications/AutoPaste.app && \
-cp -R dist/release/AutoPaste.app /Applications/ && \
-open /Applications/AutoPaste.app
+make install
 ```
