@@ -18,16 +18,16 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A20000010000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/main.swift; sourceTree = "<group>"; };
-		A20000010000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/AppDelegate.swift; sourceTree = "<group>"; };
-		A20000010000000000000003 /* StatusBarIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/StatusBarIcon.swift; sourceTree = "<group>"; };
-		A20000010000000000000004 /* HTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Networking/HTTPServer.swift; sourceTree = "<group>"; };
-		A20000010000000000000005 /* PasteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/PasteService.swift; sourceTree = "<group>"; };
-		A20000010000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
-		A20000010000000000000007 /* AutoPaste.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Resources/AutoPaste.entitlements; sourceTree = "<group>"; };
+		A20000010000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A20000010000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A20000010000000000000003 /* StatusBarIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarIcon.swift; sourceTree = "<group>"; };
+		A20000010000000000000004 /* HTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPServer.swift; sourceTree = "<group>"; };
+		A20000010000000000000005 /* PasteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteService.swift; sourceTree = "<group>"; };
+		A20000010000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000010000000000000007 /* AutoPaste.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AutoPaste.entitlements; sourceTree = "<group>"; };
 		A20000010000000000000010 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		A20000010000000000000011 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
-		A20000010000000000000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
+		A20000010000000000000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000010000000000000099 /* AutoPaste.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AutoPaste.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -56,16 +56,56 @@
 		A40000010000000000000002 /* AutoPaste */ = {
 			isa = PBXGroup;
 			children = (
+				A40000010000000000000010 /* App */,
+				A40000010000000000000011 /* UI */,
+				A40000010000000000000012 /* Networking */,
+				A40000010000000000000013 /* Services */,
+				A40000010000000000000014 /* Resources */,
+			);
+			path = AutoPaste;
+			sourceTree = "<group>";
+		};
+		A40000010000000000000010 /* App */ = {
+			isa = PBXGroup;
+			children = (
 				A20000010000000000000001 /* main.swift */,
 				A20000010000000000000002 /* AppDelegate.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A40000010000000000000011 /* UI */ = {
+			isa = PBXGroup;
+			children = (
 				A20000010000000000000003 /* StatusBarIcon.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		A40000010000000000000012 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
 				A20000010000000000000004 /* HTTPServer.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		A40000010000000000000013 /* Services */ = {
+			isa = PBXGroup;
+			children = (
 				A20000010000000000000005 /* PasteService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A40000010000000000000014 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
 				A20000010000000000000006 /* Info.plist */,
 				A20000010000000000000007 /* AutoPaste.entitlements */,
 				A20000010000000000000020 /* Assets.xcassets */,
 			);
-			path = AutoPaste;
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		A40000010000000000000003 /* Frameworks */ = {
