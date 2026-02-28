@@ -26,8 +26,6 @@
     <string>12.0</string>
     <key>LSUIElement</key>
     <true/>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>AutoPaste needs to send keystrokes to paste text.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>

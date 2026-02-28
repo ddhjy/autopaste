@@ -17,32 +17,13 @@ enum PasteService {
     }
 
     private static func simulatePaste() {
-        // 使用 AppleScript 模拟 Cmd+V，只需要 Apple Events 权限
-        let script = "tell application \"System Events\" to keystroke \"v\" using command down"
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        p.arguments = ["-e", script]
-        try? p.run()
-        p.waitUntilExit()
+        pressKey(9, flags: [.maskCommand]) // v
     }
 
     private static func simulateSend() {
-        let enterScript = "tell application \"System Events\" to key code 36"
-        let cmdEnterScript = "tell application \"System Events\" to key code 36 using command down"
-
-        let p1 = Process()
-        p1.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        p1.arguments = ["-e", enterScript]
-        try? p1.run()
-        p1.waitUntilExit()
-
+        pressKey(36) // return
         usleep(100_000)
-
-        let p2 = Process()
-        p2.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        p2.arguments = ["-e", cmdEnterScript]
-        try? p2.run()
-        p2.waitUntilExit()
+        pressKey(36, flags: [.maskCommand]) // cmd + return
     }
 
     static func copyAndPaste(text: String, autoSend: Bool) {
