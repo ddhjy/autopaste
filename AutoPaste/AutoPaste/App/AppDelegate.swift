@@ -133,12 +133,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.terminate(self)
     }
 
-    private func localIPSummary() -> String {
-        let entries = localIPAddresses()
-        guard !entries.isEmpty else { return "Unknown" }
-        return entries.map { "\($0.label): \($0.address)" }.joined(separator: "  |  ")
-    }
-
     private func localIPAddresses() -> [(label: String, address: String, rank: Int)] {
         var addresses: [(label: String, address: String, rank: Int)] = []
         var seen = Set<String>()
@@ -212,8 +206,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ipItem.title = ipMenuTitle()
     }
 
-    private func ipMenuTitle() -> String {
-        return "IP: \(localIPSummary()) (Click to Copy)"
+    private func ipSummaryLines() -> [String] {
+        return localIPAddresses().map { "\($0.label): \($0.address)" }
+    }
+
+    private func ipMenuTitle(copied: Bool = false) -> String {
+        let status = copied ? "Copied" : "Click to Copy"
+        let lines = ipSummaryLines()
+        guard !lines.isEmpty else { return "IP: Unknown (\(status))" }
+
+        if lines.count == 1 {
+            return "IP: \(lines[0]) (\(status))"
+        }
+
+        var displayLines = lines
+        displayLines[0] = "IP: \(displayLines[0])"
+        displayLines[displayLines.count - 1] = "\(displayLines[displayLines.count - 1]) (\(status))"
+        return displayLines.joined(separator: "\n")
     }
 
     private func ipCopyValue() -> String? {
@@ -229,7 +238,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pasteboard.setString(value, forType: .string)
 
         ipTitleResetWorkItem?.cancel()
-        ipItem.title = "IP: \(localIPSummary()) (Copied)"
+        ipItem.title = ipMenuTitle(copied: true)
 
         let workItem = DispatchWorkItem { [weak self] in
             self?.refreshIPItem()
