@@ -122,7 +122,7 @@ AutoPaste/
     ├── Services/
     │   └── PasteService.swift    # 粘贴逻辑（纯 CGEvent）
     └── Resources/
-        ├── Assets.xcassets/      # 标准 macOS 图标资源（AppIcon）
+        ├── AppIcon.icon/         # 新版 App Icon Composer 资源（AppIcon）
         ├── Info.plist
         └── AutoPaste.entitlements
 ```
