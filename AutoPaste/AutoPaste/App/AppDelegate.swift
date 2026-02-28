@@ -1,5 +1,6 @@
 import Cocoa
 import ApplicationServices
+import SystemConfiguration
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -39,7 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(titleItem)
         menu.addItem(.separator())
 
-        ipItem = NSMenuItem(title: "IP: \(localIPAddress())", action: nil, keyEquivalent: "")
+        ipItem = NSMenuItem(title: "IP: \(localIPSummary())", action: nil, keyEquivalent: "")
         ipItem.isEnabled = false
         menu.addItem(ipItem)
 
@@ -144,23 +145,83 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.terminate(self)
     }
 
-    private func localIPAddress() -> String {
-        var address = "Unknown"
+    private func localIPSummary() -> String {
+        let entries = localIPAddresses()
+        guard !entries.isEmpty else { return "Unknown" }
+        return entries.map { "\($0.label): \($0.address)" }.joined(separator: "  |  ")
+    }
+
+    private func localIPAddresses() -> [(label: String, address: String, rank: Int)] {
+        var addresses: [(label: String, address: String, rank: Int)] = []
+        var seen = Set<String>()
+        let interfaceKinds = networkInterfaceKinds()
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return address }
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return addresses }
         defer { freeifaddrs(ifaddr) }
+
         for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
-            let sa = ptr.pointee.ifa_addr.pointee
+            guard let addrPointer = ptr.pointee.ifa_addr else { continue }
+            let flags = Int32(ptr.pointee.ifa_flags)
+            guard (flags & IFF_UP) != 0, (flags & IFF_RUNNING) != 0, (flags & IFF_LOOPBACK) == 0 else { continue }
+
+            let sa = addrPointer.pointee
             guard sa.sa_family == UInt8(AF_INET) else { continue }
+
             let name = String(cString: ptr.pointee.ifa_name)
-            guard name.hasPrefix("en") else { continue }
-            var addr = ptr.pointee.ifa_addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+            guard let info = displayInfo(for: name, kinds: interfaceKinds) else { continue }
+
+            var addr = addrPointer.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
             var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-            inet_ntop(AF_INET, &addr.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN))
-            address = String(cString: buf)
-            break
+            guard inet_ntop(AF_INET, &addr.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN)) != nil else { continue }
+
+            let ip = String(cString: buf)
+            let key = "\(name)|\(ip)"
+            guard seen.insert(key).inserted else { continue }
+
+            addresses.append((label: "\(info.label)(\(name))", address: ip, rank: info.rank))
         }
-        return address
+
+        return addresses.sorted {
+            if $0.rank != $1.rank { return $0.rank < $1.rank }
+            if $0.label != $1.label { return $0.label < $1.label }
+            return $0.address < $1.address
+        }
+    }
+
+    private func networkInterfaceKinds() -> [String: String] {
+        guard let interfaces = SCNetworkInterfaceCopyAll() as? [SCNetworkInterface] else { return [:] }
+        var kinds: [String: String] = [:]
+
+        for interface in interfaces {
+            guard let bsdName = SCNetworkInterfaceGetBSDName(interface) as String?,
+                  let interfaceType = SCNetworkInterfaceGetInterfaceType(interface) as String? else {
+                continue
+            }
+
+            if interfaceType == kSCNetworkInterfaceTypeIEEE80211 as String {
+                kinds[bsdName] = "Wi-Fi"
+            } else if interfaceType == kSCNetworkInterfaceTypeEthernet as String {
+                kinds[bsdName] = "Ethernet"
+            }
+        }
+
+        return kinds
+    }
+
+    private func displayInfo(for bsdName: String, kinds: [String: String]) -> (label: String, rank: Int)? {
+        if let kind = kinds[bsdName] {
+            return kind == "Wi-Fi" ? ("Wi-Fi", 0) : ("Ethernet", 1)
+        }
+
+        if bsdName.hasPrefix("en") {
+            return ("Ethernet", 1)
+        }
+
+        return nil
+    }
+
+    private func refreshIPItem() {
+        ipItem.title = "IP: \(localIPSummary())"
     }
 
     private func startServer() {
@@ -194,6 +255,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension AppDelegate: NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
+        refreshIPItem()
         updateAccessibilityStatus()
     }
 }
