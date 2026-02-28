@@ -15,6 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var autoSend = false
     private var server: HTTPServer?
     private var serverRunning = false
+    private var ipTitleResetWorkItem: DispatchWorkItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -40,8 +41,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(titleItem)
         menu.addItem(.separator())
 
-        ipItem = NSMenuItem(title: "IP: \(localIPSummary())", action: nil, keyEquivalent: "")
-        ipItem.isEnabled = false
+        ipItem = NSMenuItem(title: ipMenuTitle(), action: #selector(copyIPSummary(_:)), keyEquivalent: "")
+        ipItem.target = self
         menu.addItem(ipItem)
 
         portItem = NSMenuItem(title: "Port: \(port)", action: #selector(changePort(_:)), keyEquivalent: "")
@@ -221,7 +222,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func refreshIPItem() {
-        ipItem.title = "IP: \(localIPSummary())"
+        ipItem.title = ipMenuTitle()
+    }
+
+    private func ipMenuTitle() -> String {
+        return "IP: \(localIPSummary()) (Click to Copy)"
+    }
+
+    private func ipCopyValue() -> String? {
+        let entries = localIPAddresses()
+        guard !entries.isEmpty else { return nil }
+        return entries.map { $0.address }.joined(separator: " | ")
+    }
+
+    @objc private func copyIPSummary(_ sender: NSMenuItem) {
+        guard let value = ipCopyValue() else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(value, forType: .string)
+
+        ipTitleResetWorkItem?.cancel()
+        ipItem.title = "IP: \(localIPSummary()) (Copied)"
+
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.refreshIPItem()
+        }
+        ipTitleResetWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: workItem)
     }
 
     private func startServer() {
