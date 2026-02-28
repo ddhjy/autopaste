@@ -10,6 +10,18 @@
 在项目根目录下执行：
 
 ```bash
+make release
+```
+
+打包产物位于：
+```
+dist/release/AutoPaste.app
+dist/release/AutoPaste-<version>.zip
+```
+
+如需仅使用原生 xcodebuild，也可以执行：
+
+```bash
 cd AutoPaste
 xcodebuild -project AutoPaste.xcodeproj -scheme AutoPaste -configuration Release build
 ```
@@ -30,7 +42,7 @@ pkill -f AutoPaste.app || true
 
 # 删除旧版本并安装新版本
 rm -rf /Applications/AutoPaste.app
-cp -R ~/Library/Developer/Xcode/DerivedData/AutoPaste-*/Build/Products/Release/AutoPaste.app /Applications/
+cp -R dist/release/AutoPaste.app /Applications/
 ```
 
 ## 启动应用
@@ -42,10 +54,9 @@ open /Applications/AutoPaste.app
 ## 一键编译安装（完整命令）
 
 ```bash
-cd AutoPaste && \
-xcodebuild -project AutoPaste.xcodeproj -scheme AutoPaste -configuration Release build && \
+make release && \
 pkill -f AutoPaste.app 2>/dev/null || true && \
 rm -rf /Applications/AutoPaste.app && \
-cp -R ~/Library/Developer/Xcode/DerivedData/AutoPaste-*/Build/Products/Release/AutoPaste.app /Applications/ && \
+cp -R dist/release/AutoPaste.app /Applications/ && \
 open /Applications/AutoPaste.app
 ```

@@ -1,0 +1,47 @@
+APP_NAME := AutoPaste
+PROJECT_DIR := AutoPaste
+PROJECT_FILE := $(PROJECT_DIR)/AutoPaste.xcodeproj
+SCHEME := $(APP_NAME)
+CONFIGURATION := Release
+
+DERIVED_DATA := build/derived
+BUILD_APP_PATH := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(APP_NAME).app
+RELEASE_DIR := dist/release
+RELEASE_APP := $(RELEASE_DIR)/$(APP_NAME).app
+VERSION := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" $(PROJECT_DIR)/AutoPaste/Resources/Info.plist 2>/dev/null || echo 1.0.0)
+RELEASE_ZIP := $(RELEASE_DIR)/$(APP_NAME)-$(VERSION).zip
+
+.PHONY: help build release release-app release-zip clean
+
+help:
+	@echo "Targets:"
+	@echo "  make build        Build $(APP_NAME) with Release configuration"
+	@echo "  make release      Build and package release app + zip"
+	@echo "  make release-app  Copy built .app to $(RELEASE_DIR)"
+	@echo "  make release-zip  Create zip package from $(RELEASE_APP)"
+	@echo "  make clean        Remove local build/package outputs"
+
+build:
+	xcodebuild \
+		-project "$(PROJECT_FILE)" \
+		-scheme "$(SCHEME)" \
+		-configuration "$(CONFIGURATION)" \
+		-derivedDataPath "$(DERIVED_DATA)" \
+		build
+
+release: build release-app release-zip
+	@echo "Release artifacts:"
+	@echo "  $(RELEASE_APP)"
+	@echo "  $(RELEASE_ZIP)"
+
+release-app:
+	mkdir -p "$(RELEASE_DIR)"
+	rm -rf "$(RELEASE_APP)"
+	cp -R "$(BUILD_APP_PATH)" "$(RELEASE_APP)"
+
+release-zip:
+	rm -f "$(RELEASE_ZIP)"
+	ditto -c -k --sequesterRsrc --keepParent "$(RELEASE_APP)" "$(RELEASE_ZIP)"
+
+clean:
+	rm -rf "$(DERIVED_DATA)" "$(RELEASE_DIR)"

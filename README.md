@@ -33,6 +33,19 @@ xcodebuild -project AutoPaste.xcodeproj -scheme AutoPaste -configuration Release
 cp -R ~/Library/Developer/Xcode/DerivedData/AutoPaste-*/Build/Products/Release/AutoPaste.app /Applications/
 ```
 
+### 使用 Make（推荐）
+
+在项目根目录执行：
+
+```bash
+make release
+```
+
+产物位于：
+
+- `dist/release/AutoPaste.app`
+- `dist/release/AutoPaste-<version>.zip`
+
 ## 使用方法
 
 启动后 AutoPaste 会出现在菜单栏（不会显示 Dock 图标），默认监听 `0.0.0.0:7788`。
