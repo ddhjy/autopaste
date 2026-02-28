@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Xcode build artifacts
+DerivedData/
+.derived/
+build/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Packaged app artifacts
+dist/
