@@ -99,13 +99,19 @@ AutoPaste/
 ├── AutoPaste.xcodeproj/
 │   └── project.pbxproj
 └── AutoPaste/
-    ├── main.swift            # 入口点
-    ├── AppDelegate.swift     # 主应用逻辑、菜单构建
-    ├── StatusBarIcon.swift   # 菜单栏图标绘制
-    ├── HTTPServer.swift      # GCD TCP 服务器（纯 BSD socket）
-    ├── PasteService.swift    # 粘贴逻辑（纯 CGEvent）
-    ├── Info.plist
-    └── AutoPaste.entitlements
+    ├── App/
+    │   ├── main.swift            # 入口点
+    │   └── AppDelegate.swift     # 主应用逻辑、菜单构建
+    ├── UI/
+    │   └── StatusBarIcon.swift   # 菜单栏图标绘制
+    ├── Networking/
+    │   └── HTTPServer.swift      # GCD TCP 服务器（纯 BSD socket）
+    ├── Services/
+    │   └── PasteService.swift    # 粘贴逻辑（纯 CGEvent）
+    └── Resources/
+        ├── Assets.xcassets/      # 标准 macOS 图标资源（AppIcon）
+        ├── Info.plist
+        └── AutoPaste.entitlements
 ```
 
 ## 技术细节
@@ -118,5 +124,5 @@ AutoPaste/
 
 ## 实现边界
 
-- 核心逻辑（HTTP 接收、写剪贴板、模拟按键、状态栏控制）全部在 `AutoPaste/*.swift` 内
+- 核心逻辑（HTTP 接收、写剪贴板、模拟按键、状态栏控制）全部在 `AutoPaste/{App,UI,Networking,Services}/*.swift` 内
 - 仓库不依赖 Python 运行时，不需要 `dist` 目录中的任何内容来运行 Xcode 构建出的应用

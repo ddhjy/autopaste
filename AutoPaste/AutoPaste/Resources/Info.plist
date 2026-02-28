@@ -6,8 +6,6 @@
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>AutoPaste</string>
-    <key>CFBundleIconFile</key>
-    <string>AutoPaste</string>
     <key>CFBundleIdentifier</key>
     <string>com.autopaste.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
