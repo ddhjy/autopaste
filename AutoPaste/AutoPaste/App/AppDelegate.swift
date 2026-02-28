@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var ipItem: NSMenuItem!
     private var portItem: NSMenuItem!
     private var toggleItem: NSMenuItem!
+    private var configureShortcutItem: NSMenuItem!
     private var accessibilityItem: NSMenuItem!
 
     private var port: UInt16 = 7788
@@ -15,6 +16,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: HTTPServer?
     private var serverRunning = false
     private var ipTitleResetWorkItem: DispatchWorkItem?
+
+    private let autoSendShortcutKeyDefaultsKey = "autoSendShortcutKey"
+    private let autoSendShortcutModifiersDefaultsKey = "autoSendShortcutModifiers"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -52,6 +56,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         toggleItem.target = self
         toggleItem.state = autoSend ? .on : .off
         menu.addItem(toggleItem)
+
+        configureShortcutItem = NSMenuItem(title: "Auto Send Shortcut: None", action: #selector(configureAutoSendShortcut(_:)), keyEquivalent: "")
+        configureShortcutItem.target = self
+        menu.addItem(configureShortcutItem)
+
+        applyAutoSendShortcutFromDefaults()
 
         menu.addItem(.separator())
 
@@ -128,9 +138,135 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         updateIcon()
     }
 
+    @objc private func configureAutoSendShortcut(_ sender: NSMenuItem) {
+        let current = currentAutoSendShortcutDisplay()
+
+        let alert = NSAlert()
+        alert.messageText = "Configure Auto Send Shortcut"
+        alert.informativeText = "Enter a shortcut like Cmd+Shift+S. Leave empty to clear. Current: \(current)"
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let inputField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        inputField.placeholderString = "Cmd+Shift+S"
+        inputField.stringValue = current == "None" ? "" : current
+        alert.accessoryView = inputField
+        alert.window.initialFirstResponder = inputField
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else { return }
+
+        let value = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty {
+            clearAutoSendShortcut()
+            return
+        }
+
+        guard let shortcut = parseShortcut(value) else {
+            showShortcutFormatError()
+            return
+        }
+
+        saveAutoSendShortcut(key: shortcut.key, modifiers: shortcut.modifiers)
+    }
+
     @objc private func quitApp(_ sender: NSMenuItem) {
         stopServer()
         NSApplication.shared.terminate(self)
+    }
+
+    private func applyAutoSendShortcutFromDefaults() {
+        let defaults = UserDefaults.standard
+        guard let key = defaults.string(forKey: autoSendShortcutKeyDefaultsKey), !key.isEmpty else {
+            clearShortcutOnMenuOnly()
+            return
+        }
+
+        let rawModifiers = defaults.integer(forKey: autoSendShortcutModifiersDefaultsKey)
+        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(rawModifiers))
+        applyShortcutToMenu(key: key, modifiers: modifiers)
+    }
+
+    private func saveAutoSendShortcut(key: String, modifiers: NSEvent.ModifierFlags) {
+        let defaults = UserDefaults.standard
+        defaults.set(key, forKey: autoSendShortcutKeyDefaultsKey)
+        defaults.set(Int(modifiers.rawValue), forKey: autoSendShortcutModifiersDefaultsKey)
+        applyShortcutToMenu(key: key, modifiers: modifiers)
+    }
+
+    private func clearAutoSendShortcut() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: autoSendShortcutKeyDefaultsKey)
+        defaults.removeObject(forKey: autoSendShortcutModifiersDefaultsKey)
+        clearShortcutOnMenuOnly()
+    }
+
+    private func clearShortcutOnMenuOnly() {
+        toggleItem.keyEquivalent = ""
+        toggleItem.keyEquivalentModifierMask = []
+        configureShortcutItem.title = "Auto Send Shortcut: None"
+    }
+
+    private func applyShortcutToMenu(key: String, modifiers: NSEvent.ModifierFlags) {
+        toggleItem.keyEquivalent = key.lowercased()
+        toggleItem.keyEquivalentModifierMask = modifiers
+        configureShortcutItem.title = "Auto Send Shortcut: \(shortcutDisplay(key: key, modifiers: modifiers))"
+    }
+
+    private func currentAutoSendShortcutDisplay() -> String {
+        let defaults = UserDefaults.standard
+        guard let key = defaults.string(forKey: autoSendShortcutKeyDefaultsKey), !key.isEmpty else {
+            return "None"
+        }
+
+        let rawModifiers = defaults.integer(forKey: autoSendShortcutModifiersDefaultsKey)
+        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(rawModifiers))
+        return shortcutDisplay(key: key, modifiers: modifiers)
+    }
+
+    private func parseShortcut(_ input: String) -> (key: String, modifiers: NSEvent.ModifierFlags)? {
+        let parts = input
+            .split(separator: "+")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+
+        guard let keyToken = parts.last else { return nil }
+        var modifiers: NSEvent.ModifierFlags = []
+
+        for modifier in parts.dropLast() {
+            switch modifier {
+            case "cmd", "command", "⌘":
+                modifiers.insert(.command)
+            case "shift", "⇧":
+                modifiers.insert(.shift)
+            case "option", "opt", "alt", "⌥":
+                modifiers.insert(.option)
+            case "control", "ctrl", "⌃":
+                modifiers.insert(.control)
+            default:
+                return nil
+            }
+        }
+
+        guard keyToken.count == 1, keyToken != "+" else { return nil }
+        return (key: keyToken, modifiers: modifiers)
+    }
+
+    private func shortcutDisplay(key: String, modifiers: NSEvent.ModifierFlags) -> String {
+        var parts: [String] = []
+        if modifiers.contains(.command) { parts.append("Cmd") }
+        if modifiers.contains(.control) { parts.append("Ctrl") }
+        if modifiers.contains(.option) { parts.append("Option") }
+        if modifiers.contains(.shift) { parts.append("Shift") }
+        parts.append(key.uppercased())
+        return parts.joined(separator: "+")
+    }
+
+    private func showShortcutFormatError() {
+        let alert = NSAlert()
+        alert.messageText = "Invalid shortcut"
+        alert.informativeText = "Use format like Cmd+Shift+S"
+        alert.runModal()
     }
 
     private func localIPAddresses() -> [(label: String, address: String, rank: Int)] {
