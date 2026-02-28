@@ -8,7 +8,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var ipItem: NSMenuItem!
     private var portItem: NSMenuItem!
     private var toggleItem: NSMenuItem!
-    private var serverItem: NSMenuItem!
     private var accessibilityItem: NSMenuItem!
 
     private var port: UInt16 = 7788
@@ -53,10 +52,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         toggleItem.target = self
         toggleItem.state = autoSend ? .on : .off
         menu.addItem(toggleItem)
-
-        serverItem = NSMenuItem(title: "Server: Running", action: #selector(toggleServer(_:)), keyEquivalent: "")
-        serverItem.target = self
-        menu.addItem(serverItem)
 
         menu.addItem(.separator())
 
@@ -131,14 +126,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         sender.state = autoSend ? .on : .off
         server?.autoSend = autoSend
         updateIcon()
-    }
-
-    @objc private func toggleServer(_ sender: NSMenuItem) {
-        if serverRunning {
-            stopServer()
-        } else {
-            startServer()
-        }
     }
 
     @objc private func quitApp(_ sender: NSMenuItem) {
@@ -262,7 +249,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             try srv.start(port: port)
             server = srv
             serverRunning = true
-            serverItem.title = "Server: Running"
             updateIcon()
             print("AutoPaste listening on http://0.0.0.0:\(port)")
         } catch {
@@ -275,7 +261,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         server?.stop()
         server = nil
         serverRunning = false
-        serverItem.title = "Server: Stopped"
         updateIcon()
     }
 }

@@ -88,14 +88,12 @@ curl -X POST http://localhost:7788 \
 |--------|------|
 | **Port: 7788** | 点击可修改监听端口 |
 | **Auto Send** | 开启后粘贴完成会自动按回车发送（Enter + Cmd+Enter） |
-| **Server: Running** | 点击可暂停/恢复 HTTP 服务 |
 | **Quit** | 退出应用（快捷键 Cmd+Q） |
 
 ### 图标状态
 
 - 📋 剪贴板图标 — 正常运行
 - 📋 + ↑ 箭头 — Auto Send 已开启
-- 📋 + ⏸ 暂停符号 — 服务已暂停
 
 ## 权限要求
 
