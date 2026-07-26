@@ -1,3 +1,7 @@
+> **本仓库已归档，不再维护。**
+> macOS 端已连同完整提交历史合并进 [ddhjy/vibetaking](https://github.com/ddhjy/vibetaking) 的
+> [`apps/macos/`](https://github.com/ddhjy/vibetaking/tree/main/apps/macos)，iOS 端与 macOS 端从此在同一个仓库里维护。
+
 # 随心记 (VibeTaking)
 
 macOS 菜单栏应用，通过 HTTP 接口接收文本并自动粘贴到当前活跃的输入框中。
